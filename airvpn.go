@@ -176,7 +176,7 @@ func (e serverError) Error() string { return "AirVPN: " + string(e) }
 func (c *apiClient) fetchFrom(ctx context.Context, base, act string) (*document, error) {
 	s, d, blk, iv, err := c.seal(map[string]string{
 		"act": act, "login": c.login, "password": c.password,
-		"software": "airvpn-go-socks", "arch": "x64", "system": "linux_x64", "version": "2300",
+		"software": "airvpn-go", "arch": "x64", "system": "linux_x64", "version": "2300",
 	})
 	if err != nil {
 		return nil, err
@@ -268,36 +268,6 @@ func listServers(m *document) []server {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
-}
-
-// pickServer returns the named server, or the least loaded open one.
-func pickServer(all []server, name string) (server, error) {
-	var best *server
-	for i := range all {
-		s := &all[i]
-		if name != "" {
-			if strings.EqualFold(s.Name, name) {
-				if s.closed {
-					return server{}, fmt.Errorf("server %s is closed", s.Name)
-				}
-				return *s, nil
-			}
-			continue
-		}
-		if s.closed || !s.IPv4 {
-			continue
-		}
-		if best == nil || s.load() < best.load() {
-			best = s
-		}
-	}
-	if best == nil {
-		if name != "" {
-			return server{}, fmt.Errorf("no server named %q (see the servers command)", name)
-		}
-		return server{}, fmt.Errorf("no open server found")
-	}
-	return *best, nil
 }
 
 // buildConfig turns the account's key and the chosen server into the same

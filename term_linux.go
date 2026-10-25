@@ -2,7 +2,6 @@ package main
 
 import (
 	"os"
-	"strings"
 	"syscall"
 	"unsafe"
 )
@@ -32,22 +31,5 @@ func readPassword(f *os.File) (string, error) {
 		return "", err
 	}
 	defer ioctl(f.Fd(), syscall.TCSETS, &old)
-	var line []byte
-	b := make([]byte, 1)
-	for {
-		n, err := f.Read(b)
-		if n == 1 {
-			if b[0] == '\n' {
-				break
-			}
-			line = append(line, b[0])
-		}
-		if err != nil {
-			if len(line) == 0 {
-				return "", err
-			}
-			break
-		}
-	}
-	return strings.TrimRight(string(line), "\r"), nil
+	return readLine(f)
 }

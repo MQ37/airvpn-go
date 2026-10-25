@@ -5,7 +5,7 @@ ENV CGO_ENABLED=0 GOFLAGS=-buildvcs=false GOCACHE=/tmp/gocache GOTOOLCHAIN=local
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY *.go ./
-RUN go vet ./... && go build -trimpath -ldflags '-s -w' -o /out/airvpn-go-socks .
+RUN go vet ./... && go build -trimpath -ldflags '-s -w' -o /out/airvpn-go .
 
 FROM scratch AS out
-COPY --from=build /out/airvpn-go-socks /
+COPY --from=build /out/airvpn-go /

@@ -317,17 +317,17 @@ func TestAPILoginServersAndConfig(t *testing.T) {
 	if len(all) != 3 || all[0].Name != "Alpha" || all[0].Country != "nl" || all[0].Users != 10 {
 		t.Fatalf("servers: %+v", all)
 	}
-	best, err := pickServer(all, "")
+	best, err := pickServer(all, "", "")
 	if err != nil || best.Name != "Alpha" { // least loaded, open
 		t.Fatalf("best %+v %v", best, err)
 	}
-	if _, err := pickServer(all, "shut"); err == nil {
+	if _, err := pickServer(all, "shut", ""); err == nil {
 		t.Fatal("closed server must be refused")
 	}
-	if _, err := pickServer(all, "nope"); err == nil {
+	if _, err := pickServer(all, "nope", ""); err == nil {
 		t.Fatal("unknown server must error")
 	}
-	srv, _ := pickServer(all, "alpha") // case-insensitive
+	srv, _ := pickServer(all, "alpha", "") // case-insensitive
 	cfg, err := buildConfig(user, m, srv, "", 0)
 	if err != nil {
 		t.Fatal(err)
@@ -413,7 +413,7 @@ func TestEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := pickServer(listServers(m), "")
+	srv, err := pickServer(listServers(m), "", "")
 	if err != nil {
 		t.Fatal(err)
 	}

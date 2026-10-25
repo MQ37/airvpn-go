@@ -1,4 +1,4 @@
-module airvpn-go-socks
+module airvpn-go
 
 go 1.25
 
