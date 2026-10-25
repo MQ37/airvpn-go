@@ -16,13 +16,13 @@ tidy)
 		docker.io/library/golang:1.25-alpine sh -c 'go mod tidy && go mod verify'
 	;;
 build)
-	podman build -q -t "$IMG" --target build .
+	podman build -q -t "$IMG" -f packaging/Containerfile --target build .
 	rm -rf dist && mkdir dist
-	podman build -q --target out -o type=local,dest=dist .
+	podman build -q -f packaging/Containerfile --target out -o type=local,dest=dist .
 	ls -l dist/airvpn-go
 	;;
 test)
-	podman build -q -t "$IMG" --target build .
+	podman build -q -t "$IMG" -f packaging/Containerfile --target build .
 	podman run --rm --network none --read-only --memory 2g \
 		--tmpfs /tmp:rw,exec,size=1g -e GOCACHE=/tmp/gocache -e HOME=/tmp \
 		"$IMG" go test -count=1 -v -timeout 5m ./...
@@ -46,7 +46,7 @@ install)
 	share="${XDG_DATA_HOME:-$HOME/.local/share}/airvpn-go"
 	mkdir -p "$share" "$HOME/.local/bin"
 	install -m 0755 dist/airvpn-go "$share/airvpn-go"
-	install -m 0755 launcher.sh "$HOME/.local/bin/airvpn-go"
+	install -m 0755 packaging/launcher.sh "$HOME/.local/bin/airvpn-go"
 	echo "installed: $HOME/.local/bin/airvpn-go (runs in podman)"
 	;;
 *)

@@ -1,4 +1,4 @@
-package main
+package app
 
 // AirVPN's public RSA key (4096 bit, exponent 65537) that wraps the one-time
 // AES session key of every API request, and the bootstrap endpoints. Both are

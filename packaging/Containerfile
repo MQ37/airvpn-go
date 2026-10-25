@@ -4,7 +4,8 @@ WORKDIR /app
 ENV CGO_ENABLED=0 GOFLAGS=-buildvcs=false GOCACHE=/tmp/gocache GOTOOLCHAIN=local
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
-COPY *.go ./
+COPY main.go ./
+COPY internal ./internal
 RUN go vet ./... && go build -trimpath -ldflags '-s -w' -o /out/airvpn-go .
 
 FROM scratch AS out
