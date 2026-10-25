@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 668" width="760" height="668" role="img" aria-label="airvpn-go interactive menu (illustrative session)">
+<title>airvpn-go interactive menu (illustrative session)</title>
+<style>text{font:14px ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;white-space:pre}.f{fill:#d7dde6}.d{fill:#7f8a99}.p{fill:#3fb950}.a{fill:#2ee6c8}.y{fill:#e3b341}.t{fill:#97a3b3;font-size:12px}</style>
+<rect width="760" height="668" rx="12" fill="#0e1218"/>
+<rect width="760" height="38" rx="12" fill="#171d26"/><rect y="26" width="760" height="12" fill="#171d26"/>
+<circle cx="24" cy="19" r="6" fill="#ff5f56"/><circle cx="44" cy="19" r="6" fill="#ffbd2e"/><circle cx="64" cy="19" r="6" fill="#27c93f"/>
+<text class="t" x="380" y="23" text-anchor="middle">airvpn-go</text>
+<text x="28" y="70" xml:space="preserve"><tspan class="p">$ </tspan><tspan class="f">airvpn-go</tspan></text>
+<text x="28" y="92" xml:space="preserve"><tspan class="d">airvpn-go: SOCKS5 proxy through AirVPN (userspace WireGuard, no root)</tspan></text>
+<text x="28" y="114" xml:space="preserve"><tspan class="f">AirVPN login: </tspan><tspan class="f">yourname</tspan></text>
+<text x="28" y="136" xml:space="preserve"><tspan class="f">AirVPN password: </tspan></text>
+<text x="28" y="158" xml:space="preserve"><tspan class="d">logging in to AirVPN ...</tspan></text>
+<text x="28" y="180" xml:space="preserve"></text>
+<text x="28" y="202" xml:space="preserve"><tspan class="f">Country (type a number, or a code like nl):</tspan></text>
+<text x="28" y="224" xml:space="preserve"><tspan class="y"> *</tspan><tspan class="f">  1) Best server anywhere (lowest load)</tspan></text>
+<text x="28" y="246" xml:space="preserve"><tspan class="f">    2) Germany            de   6 servers,  23% load</tspan></text>
+<text x="28" y="268" xml:space="preserve"><tspan class="f">    3) Netherlands        nl   9 servers,  31% load</tspan></text>
+<text x="28" y="290" xml:space="preserve"><tspan class="f">    4) Sweden             se   5 servers,  12% load</tspan></text>
+<text x="28" y="312" xml:space="preserve"><tspan class="f">Choice [1, q quits]: </tspan><tspan class="a">4</tspan></text>
+<text x="28" y="334" xml:space="preserve"></text>
+<text x="28" y="356" xml:space="preserve"><tspan class="f">Server in Sweden:</tspan></text>
+<text x="28" y="378" xml:space="preserve"><tspan class="y"> *</tspan><tspan class="f">  1) Best (lowest load)</tspan></text>
+<text x="28" y="400" xml:space="preserve"><tspan class="f">    2) Alnitak   se Stockholm     41 users,  12% load</tspan></text>
+<text x="28" y="422" xml:space="preserve"><tspan class="f">    3) Menkar    se Stockholm     58 users,  19% load</tspan></text>
+<text x="28" y="444" xml:space="preserve"><tspan class="f">Choice [1, q quits]: </tspan></text>
+<text x="28" y="466" xml:space="preserve"></text>
+<text x="28" y="488" xml:space="preserve"><tspan class="f">Listen address (loopback only) [127.0.0.1:1080]: </tspan></text>
+<text x="28" y="510" xml:space="preserve"></text>
+<text x="28" y="532" xml:space="preserve"><tspan class="f">Using Alnitak (Sweden, Stockholm). Ctrl+C stops the proxy.</tspan></text>
+<text x="28" y="554" xml:space="preserve"><tspan class="d">Browser: SOCKS v5 host 127.0.0.1:1080, tick "Proxy DNS when using SOCKS v5".</tspan></text>
+<text x="28" y="576" xml:space="preserve"></text>
+<text x="28" y="598" xml:space="preserve"><tspan class="d">connecting to Alnitak via 203.0.113.9:1637 ...</tspan></text>
+<text x="28" y="620" xml:space="preserve"><tspan class="a">ready: </tspan><tspan class="f">SOCKS5 proxy on 127.0.0.1:1080 via Alnitak (tunnel address 10.0.0.2)</tspan></text>
+</svg>

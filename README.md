@@ -1,91 +1,134 @@
-# airvpn-go
+<div align="center">
 
-Logs in to your AirVPN account and serves a local SOCKS5 proxy. Point a browser
-(or `curl --socks5-hostname`) at it and only that traffic goes through AirVPN.
-No root, no TUN device, no system routes: WireGuard runs in userspace inside
-the process (wireguard-go netstack). Status: local only, not published.
+<img src="assets/logo.svg" width="520" alt="airvpn-go">
 
-Everything builds and runs in rootless podman, nothing on the host.
+**Your AirVPN account as a local SOCKS5 port.<br>No root. No TUN device. No system routes.**
 
-## Install
+<img alt="Go 1.25" src="https://img.shields.io/badge/go-1.25-00ADD8?logo=go&logoColor=white">
+<img alt="rootless podman" src="https://img.shields.io/badge/runs%20in-rootless%20podman-892CA0?logo=podman&logoColor=white">
+<img alt="one dependency" src="https://img.shields.io/badge/dependencies-1-2ea44f">
+<img alt="unofficial" src="https://img.shields.io/badge/AirVPN-unofficial-lightgrey">
 
+</div>
+
+---
+
+`airvpn-go` logs in to your AirVPN account, picks a server, brings up a WireGuard tunnel **inside its own process**, and serves a SOCKS5 proxy on `127.0.0.1`. Point one browser, one script, or one agent at that port and only that traffic leaves through AirVPN. Everything else on your machine keeps its normal route.
+
+Eddie and the AirVPN Suite connect the whole system. `airvpn-go` is for the other case: *this app, and nothing else.*
+
+<div align="center">
+<img src="assets/demo.svg" width="760" alt="airvpn-go interactive menu: pick a country, pick a server, get a proxy">
+<br><sub>The interactive menu (illustrative session).</sub>
+</div>
+
+## Quick start
+
+```sh
+go install github.com/MQ37/airvpn-go@latest
+airvpn-go
 ```
-./build.sh install     # builds in podman; puts `airvpn-go` in ~/.local/bin
-```
 
-The installed `airvpn-go` is a small launcher that runs the binary in a
-read-only, capability-less podman container with host networking (so the proxy
-port is reachable by your browser). Other targets: `./build.sh build|test|tidy`.
+That is the whole install: one static binary in `$(go env GOPATH)/bin` (Go 1.25 or newer). Run `airvpn-go` with no arguments for the interactive menu.
+
+Then set your browser to **SOCKS v5, `127.0.0.1`, port `1080`**, and tick *Proxy DNS when using SOCKS v5* so hostnames are resolved inside the tunnel. Ctrl+C stops the proxy.
+
+**Prefer a sandbox?** Build and run it in rootless [podman](https://podman.io) instead: nothing is built or run on the host, and the container is read-only with no capabilities.
+
+```sh
+git clone https://github.com/MQ37/airvpn-go && cd airvpn-go
+./build.sh install      # puts a podman launcher called `airvpn-go` in ~/.local/bin
+```
 
 ## For humans
 
-```
-airvpn-go              # no arguments: interactive menu
-```
+Run `airvpn-go` with no arguments. You are asked for your login and password (hidden), then:
 
-You are asked for login and password (hidden), then pick a country (number, or
-type a code like `nl`; Enter = best server anywhere), a server (Enter = least
-loaded), a device key if the account has several, and the listen address
-(Enter = `127.0.0.1:1080`). `q` quits any menu. Then set the browser to SOCKS v5
-`127.0.0.1:1080` and tick "Proxy DNS when using SOCKS v5" so names resolve inside
-the tunnel. Ctrl+C stops the proxy.
+1. **Country**: a number, or type a code like `nl`. Enter picks the best server anywhere.
+2. **Server**: Enter picks the least loaded one in that country.
+3. **Device key**: only asked if your account has several.
+4. **Listen address**: Enter keeps `127.0.0.1:1080`.
+
+`q` quits any menu.
 
 ## For scripts and agents
 
-Never prompts when stdin is not a terminal or with `-no-input`. stdout is data
-only, stderr is logs and errors. Exit codes: 0 ok, 1 failure, 2 usage.
+Every command works without a terminal. It never prompts when stdin is not a terminal or with `-no-input`. stdout carries data only; logs and errors go to stderr.
+
+```sh
+airvpn-go countries -json                      # countries, servers, load
+airvpn-go servers -country nl                  # least loaded first
+airvpn-go socks -country nl                    # best open server in the Netherlands
+airvpn-go socks -s Alnitak -l 127.0.0.1:9050   # a named server, another port
+airvpn-go socks -country de -check             # log in, handshake, report, exit
+airvpn-go socks -c airvpn.conf                 # a Config Generator file, no login
+airvpn-go forget                               # delete saved credentials
+```
+
+With `-json`, `socks` prints one line on stdout once the tunnel is up **and** the port is listening, so a caller can start it in the background and wait for it:
+
+```json
+{"event":"ready","listen":"127.0.0.1:1080","server":"Alnitak","country":"se","endpoint":"203.0.113.9:1637","tunnel_address":"10.0.0.2"}
+```
+
+| | |
+|---|---|
+| **Exit codes** | `0` ok · `1` failure (with `-json`: `{"error":"..."}` on stderr) · `2` usage |
+| **`-check`** | exits `0` the moment the WireGuard handshake completes: a one-shot test of credentials, server and network |
+| **Help** | `airvpn-go help`, and `-h` on every command |
+
+## How it works
 
 ```
-airvpn-go countries [-json]
-airvpn-go servers [-country nl] [-json]
-airvpn-go socks [-country nl | -s Alpha] [-key NAME] [-port N] [-l 127.0.0.1:1080] [-json] [-check] [-v]
-airvpn-go socks -c airvpn.conf        # Config Generator file instead of logging in
-airvpn-go forget                      # delete saved credentials
-airvpn-go help                        # and -h on every command
+ browser ──SOCKS5──▶ 127.0.0.1:1080 ─┐
+                                     ▼
+                       ┌─────────────────────────────┐
+                       │  airvpn-go                  │ ── WireGuard/UDP ──▶ AirVPN server
+                       │  userspace WireGuard stack  │
+                       └─────────────────────────────┘
+ everything else on your machine ──────────────────────────────────────────▶ your normal route
 ```
 
-- `-json` on `countries`/`servers` prints a JSON array. On `socks` it prints one line
-  `{"event":"ready","listen":"127.0.0.1:1080","server":"...","country":"nl","endpoint":"...","tunnel_address":"..."}`
-  on stdout once the WireGuard handshake is done and the port is listening; errors are
-  `{"error":"..."}` on stderr.
-- `-check` exits 0 as soon as the tunnel is up: a quick "do my credentials, server and
-  network work" test. Without `-json`/`-check` a missing handshake only warns.
-- Run `socks` in the background and wait for the ready line.
+- **Login** speaks the same encrypted account API as Eddie: a fresh AES-256 key per request, wrapped with AirVPN's RSA-4096 public key. `act=user` returns your device keys; `act=manifest` returns the server list.
+- **The tunnel** is [wireguard-go](https://git.zx2c4.com/wireguard-go) with its userspace network stack (gVisor netstack). There is no kernel interface, so no root and no routing table changes.
+- **DNS** for hostnames is resolved by AirVPN's resolver through the tunnel, never by your machine.
+- **Fail closed.** If the tunnel drops, the proxy fails. There is no fallback path and nothing to leak through.
 
 ## Credentials
 
-Login: `-login` or `AIRVPN_LOGIN`. Password: `AIRVPN_PASSWORD` or `-password-file`,
-never a flag. Missing on a terminal: you are asked (password hidden).
+Login: `-login` or `AIRVPN_LOGIN`. Password: `AIRVPN_PASSWORD` or `-password-file`, **never a flag** (it would land in the process list and shell history). On a terminal you are simply asked.
 
-**Saving.** After a successful login with typed credentials you are asked
-`Save? [y/N]`; Enter means no. It asks every time you type credentials that are not
-already saved, and never when they came from the environment or a file, with no
-terminal, or with `-json`. Saved credentials are used automatically from then on,
-also by scripts. They are stored **unencrypted** in
-`~/.config/airvpn-go/credentials` (JSON, file 0600, directory 0700; a file other users
-can read is refused). `airvpn-go forget` deletes it. If a saved login is rejected the
-error says so. `AIRVPN_CONFIG_DIR` / `XDG_CONFIG_HOME` move the directory.
+**Saving is opt-in.** After a successful login with typed credentials you are asked `Save? [y/N]`. Enter means no. It asks every time you type credentials that are not already saved, and never when they came from the environment or a file, when there is no terminal, or with `-json`.
 
-## How login works
+Saved credentials are used automatically from then on, by scripts too. They are stored **unencrypted** in `~/.config/airvpn-go/credentials` (JSON, file mode `0600`, directory `0700`; a file other users can read is refused). `airvpn-go forget` deletes it. Your WireGuard keys are never written to disk.
 
-Same envelope as Eddie (GPL-3.0, reimplemented, no code copied): form POST of `s` (random
-AES-256 key+IV wrapped with AirVPN's RSA-4096 public key, PKCS#1 v1.5) and `d` (parameters
-`act`, `login`, `password`, ... AES-CBC encrypted). The answer is XML encrypted with the same
-key. `act=user` returns the device keys (`wg_private_key`, `wg_ipv4`, `wg_dns_ipv4`,
-`wg_preshared`, ...) and the server's `wg_public_key`; `act=manifest` returns servers and modes.
-Bootstrap endpoints are the ones shipped with Eddie, tried in order. WireGuard keys stay in
-memory; nothing but the optional credentials file is written to disk.
+## Security notes
 
-## Status and limits
+- Listens on **loopback only**; it refuses any other address.
+- The proxy has **no authentication**: any local process can use the port.
+- **SOCKS5 `CONNECT` only** (TCP). No UDP associate.
+- The installed `airvpn-go` is a launcher that runs the binary in a **read-only, capability-less podman container**. What it can see: the binary, the credentials directory, and any config or password file you pass with `-c` / `-password-file`.
+- Point clients at a **SOCKS** field, not an HTTP/HTTPS proxy field. An HTTP client gets a plain-text hint and a single log line.
+- A single dependency: [`golang.zx2c4.com/wireguard`](https://git.zx2c4.com/wireguard-go), pinned to a commit, plus what it requires.
 
-- Tested offline against a fake AirVPN API plus a real in-process WireGuard peer, and the
-  prompts and Ctrl+C through a real terminal. A real run (2026-10-24) logged in, picked a
-  server and completed the WireGuard handshake, so the login protocol, server list and entry
-  address handling work. Not yet confirmed: 2FA accounts, and traffic volume over long runs.
-- Ctrl+C stops cleanly (open connections are closed); a second Ctrl+C exits at once.
-- Point clients at the **SOCKS** host, not at an HTTP/HTTPS proxy field: an HTTP client gets
-  a plain-text hint and one log line.
-- SOCKS5 CONNECT only (no UDP associate, no auth). Listens on loopback only; any local
-  process can use it.
-- If the tunnel drops the proxy simply fails (no leak path); it does not switch servers.
-- Only dependency: `golang.zx2c4.com/wireguard` (official, pinned commit) and what it requires.
+## Build and test
+
+Everything runs in rootless podman; tests need no network and use RAM-only scratch.
+
+```sh
+./build.sh build        # static binary in dist/
+./build.sh test         # unit + end-to-end tests
+./build.sh install      # binary + podman launcher in ~/.local
+```
+
+The end-to-end test runs a fake AirVPN API and a real in-process WireGuard peer, then reaches a TCP service through the SOCKS port.
+
+## Status
+
+Verified against the live service: login, server list and the WireGuard handshake. Not yet covered: accounts with two-factor authentication, and long unattended runs. The proxy does not switch servers by itself.
+
+## Credits and disclaimer
+
+The account API was worked out by reading [Eddie](https://github.com/AirVPN/Eddie) (GPL-3.0); this is an independent reimplementation and no Eddie code is copied. The tunnel is [wireguard-go](https://git.zx2c4.com/wireguard-go).
+
+`airvpn-go` is an independent project. It is **not affiliated with or endorsed by AirVPN**, and it needs your own AirVPN account. AirVPN is a trademark of its owner.

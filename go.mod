@@ -1,4 +1,4 @@
-module airvpn-go
+module github.com/MQ37/airvpn-go
 
 go 1.25
 

@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 560 150" width="560" height="150" role="img" aria-label="airvpn-go">
+  <title>airvpn-go</title>
+  <style>
+    :root { --fg: #14181f; --mute: #5b6573; --acc: #00897b; }
+    @media (prefers-color-scheme: dark) { :root { --fg: #f1f4f8; --mute: #97a3b3; --acc: #2ee6c8; } }
+    .ring { fill: none; stroke: var(--fg); stroke-width: 6; }
+    .dot  { fill: var(--acc); }
+    .word { font: 700 62px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; fill: var(--fg); letter-spacing: -2px; }
+    .go   { fill: var(--acc); }
+    .tag  { font: 400 17px ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; fill: var(--mute); }
+  </style>
+  <!-- tunnel: nested rounded squares with a packet in the middle -->
+  <g transform="translate(18 27)">
+    <rect class="ring" x="3"  y="3"  width="90" height="90" rx="22"/>
+    <rect class="ring" x="21" y="21" width="54" height="54" rx="13" opacity=".7"/>
+    <rect class="ring" x="36" y="36" width="24" height="24" rx="7"  opacity=".45"/>
+    <circle class="dot" cx="48" cy="48" r="6"/>
+  </g>
+  <text class="word" x="140" y="86">airvpn<tspan class="go">-go</tspan></text>
+  <text class="tag"  x="143" y="118">your account, one local socks5 port</text>
+</svg>
