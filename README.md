@@ -79,9 +79,12 @@ memory; nothing but the optional credentials file is written to disk.
 ## Status and limits
 
 - Tested offline against a fake AirVPN API plus a real in-process WireGuard peer, and the
-  prompts through a real terminal. **Not yet run against the real AirVPN API**: the first
-  real login may expose protocol details (AES mode, `ips_entry`/`entry_index` use, 2FA,
-  country names) that the fake cannot.
+  prompts and Ctrl+C through a real terminal. A real run (2026-10-24) logged in, picked a
+  server and completed the WireGuard handshake, so the login protocol, server list and entry
+  address handling work. Not yet confirmed: 2FA accounts, and traffic volume over long runs.
+- Ctrl+C stops cleanly (open connections are closed); a second Ctrl+C exits at once.
+- Point clients at the **SOCKS** host, not at an HTTP/HTTPS proxy field: an HTTP client gets
+  a plain-text hint and one log line.
 - SOCKS5 CONNECT only (no UDP associate, no auth). Listens on loopback only; any local
   process can use it.
 - If the tunnel drops the proxy simply fails (no leak path); it does not switch servers.

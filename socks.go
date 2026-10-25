@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 )
@@ -29,10 +30,21 @@ const (
 // serveSOCKS accepts SOCKS5 clients until l is closed. It supports only
 // CONNECT without authentication, and hands every target (including names)
 // to dial, so DNS happens wherever dial resolves it.
+//
+// When l is closed it stops everything: pending dials are cancelled and every
+// open connection is closed, so shutdown (Ctrl+C) never waits for a browser's
+// keep-alive connections.
 func serveSOCKS(l net.Listener, dial dialFunc, logf func(string, ...any)) {
+	ctx, cancel := context.WithCancel(context.Background())
+	reg := &connSet{m: map[net.Conn]struct{}{}}
 	sem := make(chan struct{}, maxConns)
 	var wg sync.WaitGroup
-	defer wg.Wait()
+	var warnedHTTP atomic.Bool
+	defer func() {
+		cancel()
+		reg.closeAll()
+		wg.Wait()
+	}()
 	for {
 		c, err := l.Accept()
 		if err != nil {
@@ -44,19 +56,69 @@ func serveSOCKS(l net.Listener, dial dialFunc, logf func(string, ...any)) {
 			c.Close()
 			continue
 		}
+		if !reg.add(c) {
+			c.Close()
+			return
+		}
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
+			defer reg.del(c)
 			defer c.Close()
-			if err := handleSOCKS(c, dial); err != nil {
+			err := handleSOCKS(ctx, c, dial, reg)
+			switch {
+			case err == nil || ctx.Err() != nil:
+			case errors.Is(err, errHTTPClient):
+				if warnedHTTP.CompareAndSwap(false, true) {
+					logf("a client speaks the HTTP proxy protocol to this SOCKS5 port (%s): set the browser's SOCKS Host (SOCKS v5), not its HTTP/HTTPS proxy. Further such requests are not logged.", c.RemoteAddr())
+				}
+			default:
 				logf("socks %s: %v", c.RemoteAddr(), err)
 			}
 		}()
 	}
 }
 
-func handleSOCKS(c net.Conn, dial dialFunc) error {
+// connSet tracks open connections so shutdown can close them all.
+type connSet struct {
+	mu     sync.Mutex
+	m      map[net.Conn]struct{}
+	closed bool
+}
+
+func (s *connSet) add(c net.Conn) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return false
+	}
+	s.m[c] = struct{}{}
+	return true
+}
+
+func (s *connSet) del(c net.Conn) {
+	s.mu.Lock()
+	delete(s.m, c)
+	s.mu.Unlock()
+}
+
+func (s *connSet) closeAll() {
+	s.mu.Lock()
+	s.closed = true
+	for c := range s.m {
+		c.Close()
+	}
+	s.mu.Unlock()
+}
+
+var errHTTPClient = errors.New("HTTP proxy request on a SOCKS5 port")
+
+// httpProxyReply is what a browser configured with the wrong proxy type sees.
+const httpProxyReply = "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\n" +
+	"This is a SOCKS5 proxy, not an HTTP proxy.\r\nIn the browser set \"SOCKS Host\" (SOCKS v5) to this address and leave the HTTP/HTTPS proxy fields empty.\r\n"
+
+func handleSOCKS(ctx context.Context, c net.Conn, dial dialFunc, reg *connSet) error {
 	c.SetDeadline(time.Now().Add(handshakeTimeout))
 
 	var hdr [2]byte
@@ -64,6 +126,11 @@ func handleSOCKS(c net.Conn, dial dialFunc) error {
 		return err
 	}
 	if hdr[0] != 5 {
+		// An upper-case letter is the start of an HTTP method (CONNECT, GET, ...).
+		if hdr[0] >= 'A' && hdr[0] <= 'Z' {
+			c.Write([]byte(httpProxyReply))
+			return errHTTPClient
+		}
 		return fmt.Errorf("not SOCKS5 (version %d)", hdr[0])
 	}
 	methods := make([]byte, hdr[1])
@@ -121,14 +188,18 @@ func handleSOCKS(c net.Conn, dial dialFunc) error {
 		return fmt.Errorf("command %d unsupported (CONNECT only)", req[1])
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	dctx, cancel := context.WithTimeout(ctx, dialTimeout)
 	defer cancel()
-	up, err := dial(ctx, "tcp", target)
+	up, err := dial(dctx, "tcp", target)
 	if err != nil {
 		reply(c, replyCode(err))
 		return fmt.Errorf("connect %s: %w", target, err)
 	}
 	defer up.Close()
+	if !reg.add(up) {
+		return errors.New("shutting down")
+	}
+	defer reg.del(up)
 	if err := reply(c, repOK); err != nil {
 		return err
 	}

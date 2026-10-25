@@ -179,8 +179,22 @@ func cmdForget(args []string) error {
 	return nil
 }
 
+// notifyCtx is cancelled by the first Ctrl+C or SIGTERM (clean shutdown). A
+// second one exits at once, so a stuck shutdown can never trap the user. (The
+// handler stays installed: as PID 1 of a container the default action would be
+// ignored.)
 func notifyCtx() (context.Context, context.CancelFunc) {
-	return signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	ctx, cancel := context.WithCancel(context.Background())
+	sig := make(chan os.Signal, 2)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		cancel()
+		fmt.Fprintln(os.Stderr, "\nstopping (press Ctrl+C again to force)")
+		<-sig
+		os.Exit(130)
+	}()
+	return ctx, cancel
 }
 
 func printJSON(v any) error {

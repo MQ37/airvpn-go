@@ -452,3 +452,65 @@ func TestEndToEnd(t *testing.T) {
 		t.Fatal("proxy reached the host network instead of the tunnel")
 	}
 }
+
+// A browser keeps connections open: closing the listener must still end
+// serveSOCKS promptly (this is what Ctrl+C relies on).
+func TestSOCKSShutdownClosesOpenConnections(t *testing.T) {
+	echo, _ := net.Listen("tcp", "127.0.0.1:0")
+	defer echo.Close()
+	echoServer(echo)
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	var d net.Dialer
+	finished := make(chan struct{})
+	go func() { serveSOCKS(l, d.DialContext, t.Logf); close(finished) }()
+
+	code, c := socksConnect(t, l.Addr().String(), 1, "127.0.0.1", echo.Addr().(*net.TCPAddr).Port, 1)
+	if code != 0 {
+		t.Fatalf("connect reply %d", code)
+	}
+	defer c.Close()
+	idle, _ := net.Dial("tcp", l.Addr().String()) // half-open client that never speaks
+	defer idle.Close()
+
+	l.Close()
+	select {
+	case <-finished:
+	case <-time.After(3 * time.Second):
+		t.Fatal("serveSOCKS did not return with open connections")
+	}
+	c.SetReadDeadline(time.Now().Add(2 * time.Second))
+	if _, err := c.Read(make([]byte, 1)); err == nil {
+		t.Fatal("open connection was not closed on shutdown")
+	}
+}
+
+// A browser set to "HTTP proxy" instead of "SOCKS" gets a readable answer, and
+// the log says so once, not once per connection.
+func TestHTTPProxyClientGetsHint(t *testing.T) {
+	var d net.Dialer
+	var logs []string
+	l, _ := net.Listen("tcp", "127.0.0.1:0")
+	finished := make(chan struct{})
+	go func() {
+		serveSOCKS(l, d.DialContext, func(f string, a ...any) { logs = append(logs, fmt.Sprintf(f, a...)) })
+		close(finished)
+	}()
+	for i := 0; i < 3; i++ {
+		c, err := net.Dial("tcp", l.Addr().String())
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Write([]byte("CONNECT example.test:443 HTTP/1.1\r\nHost: example.test:443\r\n\r\n"))
+		c.SetReadDeadline(time.Now().Add(3 * time.Second))
+		b, _ := io.ReadAll(c)
+		c.Close()
+		if !strings.HasPrefix(string(b), "HTTP/1.1 400") || !strings.Contains(string(b), "SOCKS") {
+			t.Fatalf("reply %q", b)
+		}
+	}
+	l.Close()
+	<-finished
+	if len(logs) != 1 || !strings.Contains(logs[0], "HTTP proxy") {
+		t.Fatalf("logs: %q", logs)
+	}
+}
